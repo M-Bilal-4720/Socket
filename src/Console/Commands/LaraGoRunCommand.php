@@ -102,14 +102,17 @@ class LaraGoRunCommand extends Command
             return false;
         }
         
-        // Try to connect to the socket
-        $socket = @fsockopen('unix://' . $socketPath, -1, $errno, $errstr, 1);
-        if ($socket) {
-            fclose($socket);
+        // Socket file exists, check if any process is listening
+        // Use lsof if available, otherwise assume it's in use
+        $process = new Process(['lsof', $socketPath]);
+        $process->run();
+        
+        if ($process->isSuccessful() && !empty($process->getOutput())) {
             return true;
         }
         
-        return false;
+        // Fallback: if socket exists, assume it might be in use
+        return true;
     }
 
     /**
@@ -117,17 +120,18 @@ class LaraGoRunCommand extends Command
      */
     private function killExistingEngine()
     {
-        $process = new Process(['pkill', '-f', 'go-engine']);
+        $process = new Process(['pkill', '-9', '-f', 'go-engine']);
         $process->run();
         
-        if ($process->isSuccessful()) {
-            $this->info('✅ Killed existing engine instances');
-        }
+        // Give process time to fully terminate
+        sleep(1);
         
         // Clean up stale socket file
         if (file_exists('/tmp/larago.sock')) {
             @unlink('/tmp/larago.sock');
             $this->info('🧹 Cleaned up stale socket file');
+        } else {
+            $this->info('✅ Killed existing engine instance');
         }
         
         $this->newLine();
