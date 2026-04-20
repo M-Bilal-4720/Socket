@@ -77,17 +77,47 @@ BROADCAST_DRIVER=larago
 ### Step 2: Run Go Engine (Artisan Command)
 
 ```bash
-# Start the WebSocket engine with auto-build
-php artisan larago:run
+# Start the WebSocket engine (public mode, default)
+php artisan larago:run --background
 
 # Custom port
-php artisan larago:run --port=9000
+php artisan larago:run --port=9000 --background
 
-# Custom host
-php artisan larago:run --host=127.0.0.1
+# Custom host and port
+php artisan larago:run --host=127.0.0.1 --port=3000 --background
+
+# Private mode with JWT authentication
+php artisan larago:run --mode=private --background
+
+# Generate JWT token for private mode
+php artisan larago:token --user-id=1 --expires=3600
 ```
 
 **The engine will automatically build the Go binary on first run if needed!**
+
+## Features
+
+✨ **Zero Configuration** - Auto-builds Go binary on first run
+🔐 **Two Connection Modes:**
+   - Public (default) - No authentication
+   - Private - JWT token required
+
+🚀 **Configurable:**
+   - Custom port (`--port=8080`)
+   - Custom host (`--host=0.0.0.0`)
+   - Connection mode (`--mode=public|private`)
+
+🔄 **Built-in Testing:**
+   - Browser-based test page at `/larago-test`
+   - Configure port, host, connection mode in real-time
+   - Multi-tab broadcasting test
+
+⚡ **Background Process Management:**
+   - Runs as background process with `--background`
+   - Auto-detach using `nohup`
+   - Process monitoring and logging
+
+See [CONNECTION_MODES.md](CONNECTION_MODES.md) for detailed security and configuration guide.
 
 ## Usage
 
