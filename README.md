@@ -2,7 +2,16 @@
 
 Real-time WebSocket Broadcasting Engine for Laravel with Go Backend
 
-⚡ **Zero configuration** - Auto-builds Go engine on first run via Artisan command
+⚡ **Zero configuration** - Auto-builds Go engine on first run via Artisan command  
+✅ **Supports Laravel 8 - 13** - Including brand new Laravel 12 & 13  
+🌍 **Cross-platform** - Works on Windows, macOS, and Linux with single codebase  
+
+## Requirements
+
+- **PHP:** 7.4 or higher
+- **Laravel:** 8.0, 9.0, 10.0, 11.0, 12.0, or 13.0+
+- **Go:** 1.20+ (auto-downloaded and used, no installation needed for binary build)
+- **Composer:** For package management
 
 ## Installation
 
@@ -77,7 +86,7 @@ BROADCAST_DRIVER=larago
 ### Step 2: Run Go Engine (Artisan Command)
 
 ```bash
-# Start the WebSocket engine (public mode, default)
+# Start the WebSocket engine (default)
 php artisan larago:run --background
 
 # Custom port
@@ -86,38 +95,48 @@ php artisan larago:run --port=9000 --background
 # Custom host and port
 php artisan larago:run --host=127.0.0.1 --port=3000 --background
 
-# Private mode with JWT authentication
-php artisan larago:run --mode=private --background
-
-# Generate JWT token for private mode
+# Generate JWT token for private channels
 php artisan larago:token --user-id=1 --expires=3600
+
+# Stop the engine
+php artisan larago:stop
 ```
 
 **The engine will automatically build the Go binary on first run if needed!**
 
 ## Features
 
-✨ **Zero Configuration** - Auto-builds Go binary on first run
-🔐 **Two Connection Modes:**
-   - Public (default) - No authentication
-   - Private - JWT token required
+✨ **Zero Configuration** - Auto-builds Go binary on first run  
+🔐 **Channel-Level Access Control:**
+   - Public Channels - Anyone can subscribe
+   - Private Channels - Require JWT authentication (prefix: `private-`)
 
-🚀 **Configurable:**
-   - Custom port (`--port=8080`)
+🚀 **Highly Configurable:**
+   - Custom WebSocket port (`--port=8080`)
    - Custom host (`--host=0.0.0.0`)
-   - Connection mode (`--mode=public|private`)
+   - Custom Laravel communication port (auto: 6001)
 
 🔄 **Built-in Testing:**
    - Browser-based test page at `/larago-test`
-   - Configure port, host, connection mode in real-time
-   - Multi-tab broadcasting test
+   - Test both public and private channels
+   - Real-time message monitoring
 
 ⚡ **Background Process Management:**
    - Runs as background process with `--background`
-   - Auto-detach using `nohup`
+   - Auto-detach process
    - Process monitoring and logging
 
-See [CONNECTION_MODES.md](CONNECTION_MODES.md) for detailed security and configuration guide.
+🌍 **Cross-Platform:**
+   - Windows 10/11+ with Go installed
+   - macOS 10.15+ with Go installed
+   - Linux (Ubuntu, Debian, CentOS, etc.)
+
+📚 **Comprehensive Documentation:**
+   - Setup guides for each OS (WINDOWS_SETUP.md, MACOS_SETUP.md, LINUX_SETUP.md)
+   - Quick fix guide for Windows (WINDOWS_QUICK_FIX.md)
+   - Channel architecture guide (CONNECTION_MODES.md)
+
+See [CONNECTION_MODES.md](CONNECTION_MODES.md) for detailed channel architecture and security guide.
 
 ## Usage
 
@@ -145,16 +164,28 @@ ws.onmessage = (event) => {
 ## How It Works
 
 1. **Go Engine** listens on two interfaces:
-   - WebSocket on port 8080 for frontend connections
-   - Unix socket at `/tmp/larago.sock` for Laravel backend
+   - WebSocket on port 8080 (customizable) for frontend connections
+   - TCP socket on 127.0.0.1:6001 for Laravel backend communication
 
-2. **Laravel** sends broadcast messages to Go via Unix socket
+2. **Laravel** sends broadcast messages to Go via TCP socket
 
 3. **Go** routes messages to WebSocket clients subscribed to the channel
 
 ## Architecture
 
 ```
-Laravel App → Unix Socket → Go Engine → WebSocket → Frontend
-            (/tmp/larago.sock)         (:8080)
+Laravel App → TCP Socket → Go Engine → WebSocket → Frontend
+            (127.0.0.1:6001)   (:8080)
+
+┌─────────────────────────────────────────────────────────┐
+│ Single WebSocket Connection Supports:                   │
+│ • Public Channels (anyone can subscribe)                │
+│ • Private Channels (require JWT authentication)         │
+└─────────────────────────────────────────────────────────┘
 ```
+
+**Benefits:**
+- ✅ Cross-platform: TCP works on Windows, Mac, Linux
+- ✅ No dependency on Unix-specific features
+- ✅ Easier debugging and monitoring
+- ✅ Better Windows support

@@ -6,23 +6,53 @@ use Illuminate\Contracts\Broadcasting\Broadcaster;
 
 class GoBroadcaster implements Broadcaster
 {
+    /**
+     * Broadcast a message to Laravel WebSocket subscribers
+     */
     public function broadcast(array $channels, $event, array $payload = [])
     {
-        $socketPath = "/tmp/larago.sock";
-        $fp = @stream_socket_client("unix://$socketPath", $errno, $errstr);
+        // Get Laravel communication port from environment or default to 6001
+        $host = '127.0.0.1';
+        $port = (int) (getenv('LARAGO_LARAVEL_PORT') ?: 6001);
 
-        if (!$fp) return;
+        // Create TCP socket connection to Go engine
+        $fp = @stream_socket_client("tcp://$host:$port", $errno, $errstr, 5);
 
+        if (!$fp) {
+            // Engine not running - fail silently in production
+            if (config('app.debug')) {
+                \Log::warning("LaraGo engine not responding at $host:$port");
+            }
+            return;
+        }
+
+        // Send each channel its message
         foreach ($channels as $channel) {
-            fwrite($fp, json_encode([
+            $message = json_encode([
                 'channel' => (string) $channel,
                 'event'   => $event,
                 'data'    => $payload
-            ]));
+            ]);
+            
+            fwrite($fp, $message);
         }
+        
         fclose($fp);
     }
 
-    public function auth($request) { return true; }
-    public function validAuthenticationResponse($request, $result) { return []; }
+    /**
+     * Authenticate a user for private channels
+     */
+    public function auth($request) 
+    { 
+        return true; 
+    }
+
+    /**
+     * Return valid authentication response
+     */
+    public function validAuthenticationResponse($request, $result) 
+    { 
+        return []; 
+    }
 }
