@@ -62,30 +62,43 @@ class LaraGoRunCommand extends Command
             $env['LARAGO_PORT'] = $this->option('port');
         }
 
-        // Create and run the process
-        $process = new Process([$enginePath], null, $env);
-        
         if ($this->option('background')) {
-            // Run in background and return immediately
-            $process->start(function ($type, $buffer) {
-                // Capture output but don't display in background mode
-            });
+            // Run in background using nohup to properly detach from parent process
+            $logFile = storage_path('logs/larago-engine.log');
+            $command = "nohup '$enginePath' > '$logFile' 2>&1 &";
+            
+            // Set environment variables if custom host/port provided
+            $envStr = '';
+            if ($this->option('host') !== '0.0.0.0' || $this->option('port') !== '8080') {
+                $envStr = "LARAGO_HOST={$this->option('host')} LARAGO_PORT={$this->option('port')} ";
+            }
+            
+            $fullCommand = $envStr . $command;
+            
+            // Execute the background command
+            shell_exec($fullCommand);
             
             // Wait a moment for process to start
             sleep(1);
             
             // Verify process is running
-            if ($process->isRunning()) {
+            $pidProcess = new Process(['pgrep', '-f', 'go-engine']);
+            $pidProcess->run();
+            
+            if ($pidProcess->isSuccessful()) {
+                $pid = trim($pidProcess->getOutput());
                 $this->info('✅ Engine started successfully and running in background');
-                $this->line('PID: <comment>' . $process->getPid() . '</comment>');
+                $this->line('PID: <comment>' . $pid . '</comment>');
+                $this->line('Log: <comment>' . $logFile . '</comment>');
                 $this->line('Stop with: <comment>php artisan larago:stop</comment> or <comment>pkill -f go-engine</comment>');
                 return 0;
             } else {
                 $this->error('❌ Engine failed to start in background');
-                $this->error('Error: ' . $process->getErrorOutput());
                 return 1;
             }
         } else {
+            // Create and run the process
+            $process = new Process([$enginePath], null, $env);
             // Run in foreground with TTY
             $process->setTty(true);
             
