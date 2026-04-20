@@ -11,10 +11,26 @@ class LaraGoRunCommand extends Command
     protected $signature = 'larago:run {--host=0.0.0.0 : The host to run on} {--port=8080 : The port to run on} {--force : Kill existing engine instance and start fresh} {--background : Run engine in background}';
     protected $description = 'Start the LaraGo WebSocket engine';
 
+    private $isWindows = false;
+    private $isMac = false;
+    private $laravelPort = '6001';
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
+        $this->isMac = PHP_OS_FAMILY === 'Darwin';
+    }
+
     public function handle()
     {
         $packagePath = base_path('vendor/larago/socket');
         $enginePath = $packagePath . '/bin/go-engine';
+        
+        // On Windows, add .exe extension
+        if ($this->isWindows) {
+            $enginePath .= '.exe';
+        }
 
         // Auto-build if binary doesn't exist
         if (!file_exists($enginePath)) {
@@ -28,16 +44,20 @@ class LaraGoRunCommand extends Command
             $this->newLine();
         }
 
-        // Check if socket is already in use
+        // Check if engine is already running
         if ($this->option('force')) {
             $this->killExistingEngine();
         } else {
-            if ($this->isSocketInUse()) {
+            if ($this->isEngineRunning()) {
                 $this->warn('⚠️  LaraGo engine is already running!');
                 $this->newLine();
                 $this->line('Options:');
                 $this->line('  • To start a new instance, kill the existing one:');
-                $this->line('    <comment>pkill -f "go-engine"</comment>');
+                if ($this->isWindows) {
+                    $this->line('    <comment>taskkill /IM go-engine.exe /F</comment>');
+                } else {
+                    $this->line('    <comment>pkill -f "go-engine"</comment>');
+                }
                 $this->line('  • Or use the --force flag:');
                 $this->line('    <comment>php artisan larago:run --force</comment>');
                 return 0;
@@ -45,8 +65,8 @@ class LaraGoRunCommand extends Command
         }
 
         $this->info('🚀 Starting LaraGo Engine...');
-        $this->info("📡 Listening on {$this->option('host')}:{$this->option('port')}");
-        $this->info('📍 Unix socket: /tmp/larago.sock');
+        $this->info("📡 WebSocket on {$this->option('host')}:{$this->option('port')}");
+        $this->info("🔗 Laravel Communication on 127.0.0.1:{$this->laravelPort}");
         $this->info('🔐 Supports both public and private channels');
         
         if ($this->option('background')) {
@@ -60,35 +80,70 @@ class LaraGoRunCommand extends Command
         $env = $_ENV;
         $env['LARAGO_HOST'] = $this->option('host');
         $env['LARAGO_PORT'] = $this->option('port');
+        $env['LARAGO_LARAVEL_PORT'] = $this->laravelPort;
         $env['LARAGO_JWT_SECRET'] = config('app.key') ?: 'larago-secret-key';
 
         if ($this->option('background')) {
-            // Run in background using nohup to properly detach from parent process
-            $logFile = storage_path('logs/larago-engine.log');
-            $command = "nohup '$enginePath' > '$logFile' 2>&1 &";
-            
-            // Build environment string
-            $envStr = '';
-            $envStr .= "LARAGO_HOST={$this->option('host')} ";
-            $envStr .= "LARAGO_PORT={$this->option('port')} ";
+            return $this->runInBackground($enginePath, $env);
+        } else {
+            return $this->runInForeground($enginePath, $env);
+        }
+    }
+
+    /**
+     * Run engine in background mode
+     */
+    private function runInBackground($enginePath, $env)
+    {
+        $logFile = storage_path('logs/larago-engine.log');
+        
+        if ($this->isWindows) {
+            // Windows background execution using START command
             $secret = config('app.key') ?: 'larago-secret-key';
-            $envStr .= "LARAGO_JWT_SECRET='$secret' ";
+            $envStr = '';
+            $envStr .= "set LARAGO_HOST=" . $this->option('host') . "&& ";
+            $envStr .= "set LARAGO_PORT=" . $this->option('port') . "&& ";
+            $envStr .= "set LARAGO_LARAVEL_PORT=" . $this->laravelPort . "&& ";
+            $envStr .= "set LARAGO_JWT_SECRET=" . $secret . "&& ";
             
-            $fullCommand = $envStr . $command;
+            $cmd = "START /B {$envStr} \"{$enginePath}\" >> \"{$logFile}\" 2>&1";
             
-            // Execute the background command
-            shell_exec($fullCommand);
+            pclose(popen($cmd, "r"));
             
-            // Wait a moment for process to start
             sleep(1);
             
-            // Verify process is running
+            if ($this->isEngineRunning()) {
+                $this->info('✅ Engine started successfully in background');
+                $this->line('Log: <comment>' . $logFile . '</comment>');
+                $this->line('Stop with: <comment>php artisan larago:stop</comment> or <comment>taskkill /IM go-engine.exe /F</comment>');
+                return 0;
+            } else {
+                $this->error('❌ Engine failed to start');
+                return 1;
+            }
+        } else {
+            // Unix/Mac background execution using nohup
+            $secret = config('app.key') ?: 'larago-secret-key';
+            $cmd = sprintf(
+                "LARAGO_HOST='%s' LARAGO_PORT='%s' LARAGO_LARAVEL_PORT='%s' LARAGO_JWT_SECRET='%s' nohup '%s' > '%s' 2>&1 &",
+                $this->option('host'),
+                $this->option('port'),
+                $this->laravelPort,
+                $secret,
+                $enginePath,
+                $logFile
+            );
+            
+            shell_exec($cmd);
+            sleep(1);
+            
+            // Get PID
             $pidProcess = new Process(['pgrep', '-f', 'go-engine']);
             $pidProcess->run();
+            $pid = trim($pidProcess->getOutput());
             
-            if ($pidProcess->isSuccessful()) {
-                $pid = trim($pidProcess->getOutput());
-                $this->info('✅ Engine started successfully and running in background');
+            if (!empty($pid)) {
+                $this->info('✅ Engine started successfully in background');
                 $this->line('PID: <comment>' . $pid . '</comment>');
                 $this->line('Log: <comment>' . $logFile . '</comment>');
                 $this->line('Stop with: <comment>php artisan larago:stop</comment> or <comment>pkill -f go-engine</comment>');
@@ -97,65 +152,65 @@ class LaraGoRunCommand extends Command
                 $this->error('❌ Engine failed to start in background');
                 return 1;
             }
-        } else {
-            // Create and run the process
-            $process = new Process([$enginePath], null, $env);
-            // Run in foreground with TTY
-            $process->setTty(true);
+        }
+    }
+
+    /**
+     * Run engine in foreground mode
+     */
+    private function runInForeground($enginePath, $env)
+    {
+        $process = new Process([$enginePath], null, $env);
+        $process->setTty(true);
+        
+        try {
+            $process->mustRun(function ($type, $buffer) {
+                echo $buffer;
+            });
+        } catch (ProcessFailedException $e) {
+            $output = $e->getProcess()->getErrorOutput();
             
-            try {
-                $process->mustRun(function ($type, $buffer) {
-                    echo $buffer;
-                });
-            } catch (ProcessFailedException $e) {
-                $output = $e->getProcess()->getErrorOutput();
-                
-                // Check if it's a socket in use error
-                if (strpos($output, 'bind: address already in use') !== false || 
-                    strpos($output, 'listen unix') !== false) {
-                    $this->error('❌ Unix socket already in use!');
-                    $this->newLine();
-                    $this->line('The engine is already running or the socket file is locked.');
-                    $this->line('Options:');
-                    $this->line('  1. Kill the existing engine:');
+            if (strpos($output, 'address already in use') !== false || 
+                strpos($output, 'bind:') !== false) {
+                $this->error('❌ Port already in use!');
+                $this->newLine();
+                $this->line('The engine is already running or the port is occupied.');
+                $this->line('Options:');
+                $this->line('  1. Kill the existing engine:');
+                if ($this->isWindows) {
+                    $this->line('     <comment>taskkill /IM go-engine.exe /F</comment>');
+                } else {
                     $this->line('     <comment>pkill -f "go-engine"</comment>');
-                    $this->line('  2. Or remove the stale socket file:');
-                    $this->line('     <comment>rm /tmp/larago.sock</comment>');
-                    $this->line('  3. Or use --force flag to auto-kill existing:');
-                    $this->line('     <comment>php artisan larago:run --force</comment>');
-                    return 1;
                 }
-                
-                $this->error('❌ Engine failed to start: ' . $e->getMessage());
+                $this->line('  2. Or use a different port:');
+                $this->line('     <comment>php artisan larago:run --port=9000</comment>');
+                $this->line('  3. Or use --force flag to auto-kill existing:');
+                $this->line('     <comment>php artisan larago:run --force</comment>');
                 return 1;
             }
+            
+            $this->error('❌ Engine failed to start: ' . $e->getMessage());
+            return 1;
         }
 
         return 0;
     }
 
     /**
-     * Check if Unix socket is already in use
+     * Check if Go engine is running
      */
-    private function isSocketInUse()
+    private function isEngineRunning()
     {
-        $socketPath = '/tmp/larago.sock';
-        
-        if (!file_exists($socketPath)) {
-            return false;
+        if ($this->isWindows) {
+            // Windows: check using tasklist
+            $output = shell_exec('tasklist 2>&1');
+            return stripos($output, 'go-engine.exe') !== false;
+        } else {
+            // Unix/Mac: use pgrep
+            $process = new Process(['pgrep', '-f', 'go-engine']);
+            $process->run();
+            return $process->isSuccessful() && !empty(trim($process->getOutput()));
         }
-        
-        // Socket file exists, check if any process is listening
-        // Use lsof if available, otherwise assume it's in use
-        $process = new Process(['lsof', $socketPath]);
-        $process->run();
-        
-        if ($process->isSuccessful() && !empty($process->getOutput())) {
-            return true;
-        }
-        
-        // Fallback: if socket exists, assume it might be in use
-        return true;
     }
 
     /**
@@ -163,38 +218,50 @@ class LaraGoRunCommand extends Command
      */
     private function killExistingEngine()
     {
-        $process = new Process(['pkill', '-9', '-f', 'go-engine']);
-        $process->run();
-        
-        // Give process time to fully terminate
-        sleep(1);
-        
-        // Clean up stale socket file
-        if (file_exists('/tmp/larago.sock')) {
-            @unlink('/tmp/larago.sock');
-            $this->info('🧹 Cleaned up stale socket file');
+        if ($this->isWindows) {
+            // Windows: use taskkill
+            shell_exec('taskkill /IM go-engine.exe /F 2>nul');
+            $this->info('✅ Killed existing engine instance');
         } else {
+            // Unix/Mac: use pkill
+            $process = new Process(['pkill', '-9', '-f', 'go-engine']);
+            $process->run();
             $this->info('✅ Killed existing engine instance');
         }
         
+        sleep(1);
         $this->newLine();
     }
-
 
     /**
      * Build the Go engine binary
      */
     private function buildEngine($packagePath)
     {
-        // Check if build.sh exists
-        $buildScript = $packagePath . '/build.sh';
-        if (!file_exists($buildScript)) {
-            $this->error('build.sh not found at: ' . $buildScript);
-            return false;
+        // Check if build script exists
+        if ($this->isWindows) {
+            $buildScript = $packagePath . '/build.bat';
+            if (!file_exists($buildScript)) {
+                // Fallback to build.sh with bash
+                $buildScript = $packagePath . '/build.sh';
+                if (!file_exists($buildScript)) {
+                    $this->error('build.sh not found at: ' . $buildScript);
+                    return false;
+                }
+            }
+        } else {
+            $buildScript = $packagePath . '/build.sh';
+            if (!file_exists($buildScript)) {
+                $this->error('build.sh not found at: ' . $buildScript);
+                return false;
+            }
         }
 
-        // Run build.sh
-        $process = new Process(['bash', 'build.sh'], $packagePath);
+        if ($this->isWindows && strpos($buildScript, '.bat') !== false) {
+            $process = new Process(['cmd', '/C', $buildScript], $packagePath);
+        } else {
+            $process = new Process(['bash', 'build.sh'], $packagePath);
+        }
         
         try {
             $process->mustRun(function ($type, $buffer) {

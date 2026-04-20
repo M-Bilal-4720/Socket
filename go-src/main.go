@@ -31,7 +31,6 @@ var upgrader = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { retu
 var jwtSecret = ""
 
 func main() {
-	socketPath := "/tmp/larago.sock"
 	port := os.Getenv("LARAGO_PORT")
 	if port == "" {
 		port = "8080"
@@ -42,20 +41,23 @@ func main() {
 	}
 	jwtSecret = os.Getenv("LARAGO_JWT_SECRET")
 
-	// Clean up stale socket file
-	cleanupSocket(socketPath)
+	// Laravel communication port
+	laravelPort := os.Getenv("LARAGO_LARAVEL_PORT")
+	if laravelPort == "" {
+		laravelPort = "6001"
+	}
 
 	// Handle graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-	// Unix Socket for Laravel Communication
+	// TCP Socket for Laravel Communication (cross-platform)
 	go func() {
-		l, err := net.Listen("unix", socketPath)
+		l, err := net.Listen("tcp", "127.0.0.1:"+laravelPort)
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println("Unix Socket Listening on", socketPath)
+		fmt.Println("📡 Laravel Communication on 127.0.0.1:" + laravelPort)
 		for {
 			conn, err := l.Accept()
 			if err != nil {
@@ -78,7 +80,6 @@ func main() {
 	// Wait for shutdown signal
 	<-sigChan
 	fmt.Println("\nShutting down LaraGo Engine...")
-	cleanupSocket(socketPath)
 	os.Exit(0)
 }
 
