@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 
 	"github.com/gorilla/websocket"
 )
@@ -21,9 +24,17 @@ var mu sync.Mutex
 var upgrader = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
 
 func main() {
+	socketPath := "/tmp/larago.sock"
+
+	// Clean up stale socket file
+	cleanupSocket(socketPath)
+
+	// Handle graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
 	// Unix Socket for Laravel Communication
 	go func() {
-		socketPath := "/tmp/larago.sock"
 		l, err := net.Listen("unix", socketPath)
 		if err != nil {
 			panic(err)
@@ -42,7 +53,22 @@ func main() {
 	// WebSocket Server
 	http.HandleFunc("/ws", handleWebsocket)
 	fmt.Println("LaraGo Engine running on :8080")
-	http.ListenAndServe(":8080", nil)
+
+	// Run server in goroutine
+	go http.ListenAndServe(":8080", nil)
+
+	// Wait for shutdown signal
+	<-sigChan
+	fmt.Println("\nShutting down LaraGo Engine...")
+	cleanupSocket(socketPath)
+	os.Exit(0)
+}
+
+func cleanupSocket(socketPath string) {
+	// Remove stale socket file if it exists
+	if err := os.Remove(socketPath); err != nil && !os.IsNotExist(err) {
+		// Silent cleanup - don't panic on permission errors
+	}
 }
 
 func handleWebsocket(w http.ResponseWriter, r *http.Request) {

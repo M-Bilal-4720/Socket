@@ -8,7 +8,7 @@ use Symfony\Component\Process\Process;
 
 class LaraGoRunCommand extends Command
 {
-    protected $signature = 'larago:run {--host=0.0.0.0 : The host to run on} {--port=8080 : The port to run on} {--force : Kill existing engine instance and start fresh}';
+    protected $signature = 'larago:run {--host=0.0.0.0 : The host to run on} {--port=8080 : The port to run on} {--force : Kill existing engine instance and start fresh} {--background : Run engine in background}';
     protected $description = 'Start the LaraGo WebSocket engine';
 
     public function handle()
@@ -47,7 +47,12 @@ class LaraGoRunCommand extends Command
         $this->info('🚀 Starting LaraGo Engine...');
         $this->info("📡 Listening on port: {$this->option('port')}");
         $this->info('📍 Unix socket: /tmp/larago.sock');
-        $this->info('Press Ctrl+C to stop');
+        
+        if ($this->option('background')) {
+            $this->info('🔄 Running in background mode');
+        } else {
+            $this->info('Press Ctrl+C to stop');
+        }
         $this->newLine();
 
         // Set environment variables if custom host/port provided
@@ -59,33 +64,57 @@ class LaraGoRunCommand extends Command
 
         // Create and run the process
         $process = new Process([$enginePath], null, $env);
-        $process->setTty(true);
         
-        try {
-            $process->mustRun(function ($type, $buffer) {
-                echo $buffer;
+        if ($this->option('background')) {
+            // Run in background and return immediately
+            $process->start(function ($type, $buffer) {
+                // Capture output but don't display in background mode
             });
-        } catch (ProcessFailedException $e) {
-            $output = $e->getProcess()->getErrorOutput();
             
-            // Check if it's a socket in use error
-            if (strpos($output, 'bind: address already in use') !== false || 
-                strpos($output, 'listen unix') !== false) {
-                $this->error('❌ Unix socket already in use!');
-                $this->newLine();
-                $this->line('The engine is already running or the socket file is locked.');
-                $this->line('Options:');
-                $this->line('  1. Kill the existing engine:');
-                $this->line('     <comment>pkill -f "go-engine"</comment>');
-                $this->line('  2. Or remove the stale socket file:');
-                $this->line('     <comment>rm /tmp/larago.sock</comment>');
-                $this->line('  3. Or use --force flag to auto-kill existing:');
-                $this->line('     <comment>php artisan larago:run --force</comment>');
+            // Wait a moment for process to start
+            sleep(1);
+            
+            // Verify process is running
+            if ($process->isRunning()) {
+                $this->info('✅ Engine started successfully and running in background');
+                $this->line('PID: <comment>' . $process->getPid() . '</comment>');
+                $this->line('Stop with: <comment>php artisan larago:stop</comment> or <comment>pkill -f go-engine</comment>');
+                return 0;
+            } else {
+                $this->error('❌ Engine failed to start in background');
+                $this->error('Error: ' . $process->getErrorOutput());
                 return 1;
             }
+        } else {
+            // Run in foreground with TTY
+            $process->setTty(true);
             
-            $this->error('❌ Engine failed to start: ' . $e->getMessage());
-            return 1;
+            try {
+                $process->mustRun(function ($type, $buffer) {
+                    echo $buffer;
+                });
+            } catch (ProcessFailedException $e) {
+                $output = $e->getProcess()->getErrorOutput();
+                
+                // Check if it's a socket in use error
+                if (strpos($output, 'bind: address already in use') !== false || 
+                    strpos($output, 'listen unix') !== false) {
+                    $this->error('❌ Unix socket already in use!');
+                    $this->newLine();
+                    $this->line('The engine is already running or the socket file is locked.');
+                    $this->line('Options:');
+                    $this->line('  1. Kill the existing engine:');
+                    $this->line('     <comment>pkill -f "go-engine"</comment>');
+                    $this->line('  2. Or remove the stale socket file:');
+                    $this->line('     <comment>rm /tmp/larago.sock</comment>');
+                    $this->line('  3. Or use --force flag to auto-kill existing:');
+                    $this->line('     <comment>php artisan larago:run --force</comment>');
+                    return 1;
+                }
+                
+                $this->error('❌ Engine failed to start: ' . $e->getMessage());
+                return 1;
+            }
         }
 
         return 0;

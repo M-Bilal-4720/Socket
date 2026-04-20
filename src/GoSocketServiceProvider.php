@@ -5,6 +5,7 @@ namespace LaraGo\Socket;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\ServiceProvider;
 use LaraGo\Socket\Console\Commands\LaraGoRunCommand;
+use LaraGo\Socket\Console\Commands\LaraGoStopCommand;
 
 class GoSocketServiceProvider extends ServiceProvider
 {
@@ -18,6 +19,7 @@ class GoSocketServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 LaraGoRunCommand::class,
+                LaraGoStopCommand::class,
             ]);
         }
     }
