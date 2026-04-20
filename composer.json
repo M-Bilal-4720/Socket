@@ -1,0 +1,38 @@
+{
+    "name": "larago/socket",
+    "description": "Integrated Laravel Broadcasting with Golang Real-time Engine",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "LaraGo Team",
+            "email": "info@larago.dev"
+        }
+    ],
+    "require": {
+        "php": ">=7.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "LaraGo\\Socket\\": "src/"
+        }
+    },
+    "scripts": {
+        "post-install-cmd": [
+            "@build-engine"
+        ],
+        "post-update-cmd": [
+            "@build-engine"
+        ],
+        "build-engine": [
+            "bash build.sh"
+        ]
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "LaraGo\\Socket\\GoSocketServiceProvider"
+            ]
+        }
+    }
+}

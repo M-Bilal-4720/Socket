@@ -1,0 +1,28 @@
+# Generated files
+bin/go-engine
+*.pdf
+
+# Dependencies
+vendor/
+composer.lock
+
+# Virtual environments
+pdf-env/
+venv/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go build
+*.o
+*.a
+*.so
+.DS_Store
