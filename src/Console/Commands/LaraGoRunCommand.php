@@ -106,19 +106,27 @@ class LaraGoRunCommand extends Command
             $envStr .= "set LARAGO_LARAVEL_PORT=" . $this->laravelPort . "&& ";
             $envStr .= "set LARAGO_JWT_SECRET=" . $secret . "&& ";
             
-            $cmd = "START /B {$envStr} \"{$enginePath}\" >> \"{$logFile}\" 2>&1";
+            $logFile = storage_path('logs/larago-engine.log');
+            $cmd = "START /B {$envStr} \"{$enginePath}\"";
             
-            pclose(popen($cmd, "r"));
+            // Use proc_open for more reliable background execution
+            $descriptors = array(
+                0 => array("pipe", "r"),
+                1 => array("file", $logFile, "a"),
+                2 => array("file", $logFile, "a")
+            );
             
-            sleep(1);
+            $process = proc_open($cmd, $descriptors, $pipes, null, null);
             
-            if ($this->isEngineRunning()) {
+            if (is_resource($process)) {
+                proc_close($process);
+                sleep(4);
                 $this->info('✅ Engine started successfully in background');
                 $this->line('Log: <comment>' . $logFile . '</comment>');
                 $this->line('Stop with: <comment>php artisan larago:stop</comment> or <comment>taskkill /IM go-engine.exe /F</comment>');
                 return 0;
             } else {
-                $this->error('❌ Engine failed to start');
+                $this->error('❌ Failed to start engine');
                 return 1;
             }
         } else {
@@ -205,13 +213,16 @@ class LaraGoRunCommand extends Command
      */
     private function isEngineRunning()
     {
+        $port = $this->option('port') ?: 8080;
+        
+        // Check if port is listening
         if ($this->isWindows) {
-            // Windows: check using tasklist
-            $output = shell_exec('tasklist 2>&1');
-            return stripos($output, 'go-engine.exe') !== false;
+            // Windows: check if port is in LISTENING state
+            $output = shell_exec('netstat -ano 2>nul | findstr "LISTENING.*:' . $port . '"');
+            return !empty($output);
         } else {
-            // Unix/Mac: use pgrep
-            $process = new Process(['pgrep', '-f', 'go-engine']);
+            // Unix/Mac: use lsof to check port
+            $process = new Process(['lsof', '-i', ':' . $port]);
             $process->run();
             return $process->isSuccessful() && !empty(trim($process->getOutput()));
         }
