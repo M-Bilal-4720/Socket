@@ -8,20 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.2.0] - 2024-04-20
 
 ### Added
-- `--force` flag to `larago:run` command for automatic restart
-- Improved Unix socket detection using `lsof`
-- Better error messages when socket is already in use
-- Automatic stale socket file cleanup
+- Background mode: `php artisan larago:run --background` (starts engine without blocking)
+- Stop command: `php artisan larago:stop` (gracefully stops the running engine)
+- Force flag: `php artisan larago:run --force` (kills existing engine and starts fresh)
+- Graceful shutdown handling in Go engine (SIGINT/SIGTERM)
+- Automatic socket file cleanup on startup
+- Supervisor configuration guide (SUPERVISOR.md)
+- Systemd service file documentation
+- Better error messages for socket conflicts
+- Go engine improvements: signal handling, stale socket cleanup
 
-### Improved
-- More reliable socket availability detection
-- Graceful handling of engine restart scenarios
-- User-friendly error messages with actionable solutions
+### Changed
+- Go engine now properly handles graceful shutdown
+- Improved socket management - removes stale socket files automatically
+- Better process management in Artisan commands
 
 ### Fixed
-- Race condition when killing existing engine processes
-- Stale socket files preventing new engine startup
-- Panic errors now caught and displayed as helpful messages
+- Socket "address already in use" errors now properly handled
+- Engine crashes no longer leave stale socket files
+- Graceful shutdown on Ctrl+C and signals
 
 ## [1.1.0] - 2024-04-20
 
