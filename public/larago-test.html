@@ -119,7 +119,18 @@
             font-size: 14px;
         }
 
-        input:focus, textarea:focus {
+        select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 14px;
+            background-color: white;
+            cursor: pointer;
+        }
+
+        input:focus, textarea:focus, select:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
@@ -285,7 +296,35 @@
 
         <!-- Server Info -->
         <div class="url-info">
-            📍 WebSocket URL: <code>ws://localhost:8080/ws</code>
+            📍 WebSocket URL: <code id="wsUrl">ws://localhost:8080/ws</code>
+        </div>
+
+        <!-- Connection Configuration -->
+        <div class="input-section">
+            <div class="input-group">
+                <div>
+                    <label for="host">Host</label>
+                    <input type="text" id="host" placeholder="localhost" value="localhost">
+                </div>
+                <div>
+                    <label for="port">Port</label>
+                    <input type="number" id="port" placeholder="8080" value="8080" min="1" max="65535">
+                </div>
+            </div>
+
+            <div class="input-group">
+                <div>
+                    <label for="connMode">Connection Mode</label>
+                    <select id="connMode" onchange="toggleJWTInput()">
+                        <option value="public">Public (No Auth)</option>
+                        <option value="private">Private (JWT Auth)</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="jwtToken">JWT Token (Private Mode)</label>
+                    <input type="text" id="jwtToken" placeholder="eyJ0eXAiOiJKV1QiLCJhbGc..." style="display:none;">
+                </div>
+            </div>
         </div>
 
         <!-- Channel & Message Input -->
@@ -345,6 +384,33 @@
         const channelInput = document.getElementById('channel');
         const eventInput = document.getElementById('event');
         const messageInput = document.getElementById('message');
+        const hostInput = document.getElementById('host');
+        const portInput = document.getElementById('port');
+        const connModeInput = document.getElementById('connMode');
+        const jwtTokenInput = document.getElementById('jwtToken');
+        const wsUrlDisplay = document.getElementById('wsUrl');
+
+        const toggleJWTInput = () => {
+            if (connModeInput.value === 'private') {
+                jwtTokenInput.style.display = 'block';
+            } else {
+                jwtTokenInput.style.display = 'none';
+                jwtTokenInput.value = '';
+            }
+        };
+
+        const updateWSUrl = () => {
+            const host = hostInput.value.trim() || 'localhost';
+            const port = portInput.value.trim() || '8080';
+            let url = `ws://${host}:${port}/ws`;
+            
+            if (connModeInput.value === 'private' && jwtTokenInput.value.trim()) {
+                url += `?token=${encodeURIComponent(jwtTokenInput.value.trim())}`;
+            }
+            
+            wsUrlDisplay.textContent = url;
+            return url;
+        };
 
         const updateStatus = (status, color, text) => {
             statusIndicator.className = `status-indicator ${color}`;
@@ -370,9 +436,11 @@
         };
 
         const connectWebSocket = () => {
+            const wsUrl = updateWSUrl();
+            
             updateStatus('connecting', 'connecting', '🔄 Connecting to WebSocket...');
             
-            ws = new WebSocket('ws://localhost:8080/ws');
+            ws = new WebSocket(wsUrl);
             
             ws.onopen = () => {
                 updateStatus('connected', 'connected', '✅ Connected! Subscribe to a channel to receive messages.');
@@ -383,6 +451,10 @@
             ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
+                    if (data.error) {
+                        addMessage('received', `❌ Error: ${data.error}`);
+                        return;
+                    }
                     addMessage('received', `[${data.channel}] ${data.event}: ${JSON.stringify(data.data)}`);
                 } catch (e) {
                     addMessage('received', event.data);
@@ -459,8 +531,20 @@
             addMessage('sent', `Sent to ${channel}: ${JSON.stringify(message, null, 2)}`);
         };
 
+        // Update URL display when inputs change
+        hostInput.addEventListener('change', updateWSUrl);
+        portInput.addEventListener('change', updateWSUrl);
+        connModeInput.addEventListener('change', () => {
+            toggleJWTInput();
+            updateWSUrl();
+        });
+        jwtTokenInput.addEventListener('change', updateWSUrl);
+
         // Connect on page load
-        window.addEventListener('load', connectWebSocket);
+        window.addEventListener('load', () => {
+            toggleJWTInput();
+            connectWebSocket();
+        });
     </script>
 </body>
 </html>

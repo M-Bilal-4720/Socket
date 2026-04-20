@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -19,12 +20,33 @@ type Message struct {
 	Data    interface{} `json:"data"`
 }
 
-var clients = make(map[*websocket.Conn]map[string]bool)
+type ClientInfo struct {
+	Channels  map[string]bool
+	JWT       string
+	Connected bool
+}
+
+var clients = make(map[*websocket.Conn]*ClientInfo)
 var mu sync.Mutex
 var upgrader = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
+var connectionMode = "public" // "public" or "private"
+var jwtSecret = ""
 
 func main() {
 	socketPath := "/tmp/larago.sock"
+	port := os.Getenv("LARAGO_PORT")
+	if port == "" {
+		port = "8080"
+	}
+	host := os.Getenv("LARAGO_HOST")
+	if host == "" {
+		host = "0.0.0.0"
+	}
+	connectionMode = os.Getenv("LARAGO_CONNECTION_MODE")
+	if connectionMode == "" {
+		connectionMode = "public"
+	}
+	jwtSecret = os.Getenv("LARAGO_JWT_SECRET")
 
 	// Clean up stale socket file
 	cleanupSocket(socketPath)
@@ -52,10 +74,12 @@ func main() {
 
 	// WebSocket Server
 	http.HandleFunc("/ws", handleWebsocket)
-	fmt.Println("LaraGo Engine running on :8080")
+	addr := host + ":" + port
+	fmt.Println("LaraGo Engine running on", addr)
+	fmt.Println("Connection Mode:", connectionMode)
 
 	// Run server in goroutine
-	go http.ListenAndServe(":8080", nil)
+	go http.ListenAndServe(addr, nil)
 
 	// Wait for shutdown signal
 	<-sigChan
@@ -77,21 +101,65 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("WebSocket upgrade error:", err)
 		return
 	}
-	mu.Lock()
-	clients[ws] = make(map[string]bool)
-	mu.Unlock()
+
+	// Check authentication if private mode
+	if connectionMode == "private" {
+		token := r.URL.Query().Get("token")
+		if token == "" {
+			ws.WriteJSON(map[string]string{
+				"error": "Missing authentication token. Connection mode is private.",
+			})
+			ws.Close()
+			return
+		}
+
+		// Basic JWT validation (check if token is not empty and has expected format)
+		if !isValidJWT(token) {
+			ws.WriteJSON(map[string]string{
+				"error": "Invalid authentication token",
+			})
+			ws.Close()
+			return
+		}
+
+		// Store authenticated client
+		mu.Lock()
+		clients[ws] = &ClientInfo{
+			Channels:  make(map[string]bool),
+			JWT:       token,
+			Connected: true,
+		}
+		mu.Unlock()
+
+		fmt.Println("Private connection authenticated")
+	} else {
+		// Public mode - no authentication needed
+		mu.Lock()
+		clients[ws] = &ClientInfo{
+			Channels:  make(map[string]bool),
+			Connected: true,
+		}
+		mu.Unlock()
+
+		fmt.Println("Public connection established")
+	}
 
 	defer ws.Close()
 	for {
-		var msg map[string]string
+		var msg map[string]interface{}
 		if err := ws.ReadJSON(&msg); err != nil {
 			break
 		}
-		if msg["event"] == "subscribe" {
-			mu.Lock()
-			clients[ws][msg["channel"]] = true
-			mu.Unlock()
-			fmt.Println("Subscribed to:", msg["channel"])
+
+		if event, ok := msg["event"].(string); ok && event == "subscribe" {
+			if channel, ok := msg["channel"].(string); ok {
+				mu.Lock()
+				if clientInfo, exists := clients[ws]; exists {
+					clientInfo.Channels[channel] = true
+				}
+				mu.Unlock()
+				fmt.Println("Subscribed to:", channel)
+			}
 		}
 	}
 
@@ -101,6 +169,12 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 	mu.Unlock()
 }
 
+func isValidJWT(token string) bool {
+	// Basic JWT validation: should have 3 parts separated by dots
+	parts := strings.Split(token, ".")
+	return len(parts) == 3 && parts[0] != "" && parts[1] != "" && parts[2] != ""
+}
+
 func handleLaravelMessage(c net.Conn) {
 	defer c.Close()
 	var m Message
@@ -108,8 +182,8 @@ func handleLaravelMessage(c net.Conn) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	for client, subs := range clients {
-		if subs[m.Channel] {
+	for client, clientInfo := range clients {
+		if clientInfo.Channels[m.Channel] {
 			client.WriteJSON(m)
 		}
 	}

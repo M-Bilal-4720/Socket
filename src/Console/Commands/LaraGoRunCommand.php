@@ -8,7 +8,7 @@ use Symfony\Component\Process\Process;
 
 class LaraGoRunCommand extends Command
 {
-    protected $signature = 'larago:run {--host=0.0.0.0 : The host to run on} {--port=8080 : The port to run on} {--force : Kill existing engine instance and start fresh} {--background : Run engine in background}';
+    protected $signature = 'larago:run {--host=0.0.0.0 : The host to run on} {--port=8080 : The port to run on} {--mode=public : Connection mode (public or private)} {--force : Kill existing engine instance and start fresh} {--background : Run engine in background}';
     protected $description = 'Start the LaraGo WebSocket engine';
 
     public function handle()
@@ -45,8 +45,9 @@ class LaraGoRunCommand extends Command
         }
 
         $this->info('🚀 Starting LaraGo Engine...');
-        $this->info("📡 Listening on port: {$this->option('port')}");
+        $this->info("📡 Listening on {$this->option('host')}:{$this->option('port')}");
         $this->info('📍 Unix socket: /tmp/larago.sock');
+        $this->info("🔐 Connection Mode: {$this->option('mode')}");
         
         if ($this->option('background')) {
             $this->info('🔄 Running in background mode');
@@ -55,11 +56,15 @@ class LaraGoRunCommand extends Command
         }
         $this->newLine();
 
-        // Set environment variables if custom host/port provided
+        // Set environment variables
         $env = $_ENV;
-        if ($this->option('host') !== '0.0.0.0' || $this->option('port') !== '8080') {
-            $env['LARAGO_HOST'] = $this->option('host');
-            $env['LARAGO_PORT'] = $this->option('port');
+        $env['LARAGO_HOST'] = $this->option('host');
+        $env['LARAGO_PORT'] = $this->option('port');
+        $env['LARAGO_CONNECTION_MODE'] = $this->option('mode');
+        
+        // Set JWT secret for private mode
+        if ($this->option('mode') === 'private') {
+            $env['LARAGO_JWT_SECRET'] = config('app.key') ?: 'larago-secret-key';
         }
 
         if ($this->option('background')) {
@@ -67,10 +72,14 @@ class LaraGoRunCommand extends Command
             $logFile = storage_path('logs/larago-engine.log');
             $command = "nohup '$enginePath' > '$logFile' 2>&1 &";
             
-            // Set environment variables if custom host/port provided
+            // Build environment string
             $envStr = '';
-            if ($this->option('host') !== '0.0.0.0' || $this->option('port') !== '8080') {
-                $envStr = "LARAGO_HOST={$this->option('host')} LARAGO_PORT={$this->option('port')} ";
+            $envStr .= "LARAGO_HOST={$this->option('host')} ";
+            $envStr .= "LARAGO_PORT={$this->option('port')} ";
+            $envStr .= "LARAGO_CONNECTION_MODE={$this->option('mode')} ";
+            if ($this->option('mode') === 'private') {
+                $secret = config('app.key') ?: 'larago-secret-key';
+                $envStr .= "LARAGO_JWT_SECRET='$secret' ";
             }
             
             $fullCommand = $envStr . $command;
