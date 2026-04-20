@@ -22,14 +22,12 @@ type Message struct {
 
 type ClientInfo struct {
 	Channels  map[string]bool
-	JWT       string
 	Connected bool
 }
 
 var clients = make(map[*websocket.Conn]*ClientInfo)
 var mu sync.Mutex
 var upgrader = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
-var connectionMode = "public" // "public" or "private"
 var jwtSecret = ""
 
 func main() {
@@ -41,10 +39,6 @@ func main() {
 	host := os.Getenv("LARAGO_HOST")
 	if host == "" {
 		host = "0.0.0.0"
-	}
-	connectionMode = os.Getenv("LARAGO_CONNECTION_MODE")
-	if connectionMode == "" {
-		connectionMode = "public"
 	}
 	jwtSecret = os.Getenv("LARAGO_JWT_SECRET")
 
@@ -76,7 +70,7 @@ func main() {
 	http.HandleFunc("/ws", handleWebsocket)
 	addr := host + ":" + port
 	fmt.Println("LaraGo Engine running on", addr)
-	fmt.Println("Connection Mode:", connectionMode)
+	fmt.Println("Supports public and private channels")
 
 	// Run server in goroutine
 	go http.ListenAndServe(addr, nil)
@@ -102,47 +96,15 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check authentication if private mode
-	if connectionMode == "private" {
-		token := r.URL.Query().Get("token")
-		if token == "" {
-			ws.WriteJSON(map[string]string{
-				"error": "Missing authentication token. Connection mode is private.",
-			})
-			ws.Close()
-			return
-		}
-
-		// Basic JWT validation (check if token is not empty and has expected format)
-		if !isValidJWT(token) {
-			ws.WriteJSON(map[string]string{
-				"error": "Invalid authentication token",
-			})
-			ws.Close()
-			return
-		}
-
-		// Store authenticated client
-		mu.Lock()
-		clients[ws] = &ClientInfo{
-			Channels:  make(map[string]bool),
-			JWT:       token,
-			Connected: true,
-		}
-		mu.Unlock()
-
-		fmt.Println("Private connection authenticated")
-	} else {
-		// Public mode - no authentication needed
-		mu.Lock()
-		clients[ws] = &ClientInfo{
-			Channels:  make(map[string]bool),
-			Connected: true,
-		}
-		mu.Unlock()
-
-		fmt.Println("Public connection established")
+	// Store client - all clients can connect
+	mu.Lock()
+	clients[ws] = &ClientInfo{
+		Channels:  make(map[string]bool),
+		Connected: true,
 	}
+	mu.Unlock()
+
+	fmt.Println("Client connected")
 
 	defer ws.Close()
 	for {
@@ -153,12 +115,57 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 
 		if event, ok := msg["event"].(string); ok && event == "subscribe" {
 			if channel, ok := msg["channel"].(string); ok {
-				mu.Lock()
-				if clientInfo, exists := clients[ws]; exists {
-					clientInfo.Channels[channel] = true
+				// Check if this is a private channel
+				if strings.HasPrefix(channel, "private-") {
+					// Private channel - require JWT token
+					token, ok := msg["token"].(string)
+					if !ok || token == "" {
+						ws.WriteJSON(map[string]string{
+							"error":   "private_channel_requires_token",
+							"message": "Private channels require a JWT token",
+							"channel": channel,
+						})
+						fmt.Println("Rejected: Missing token for private channel:", channel)
+						continue
+					}
+
+					// Validate JWT
+					if !isValidJWT(token) {
+						ws.WriteJSON(map[string]string{
+							"error":   "invalid_token",
+							"message": "Invalid JWT token",
+							"channel": channel,
+						})
+						fmt.Println("Rejected: Invalid token for private channel:", channel)
+						continue
+					}
+
+					// Valid token - subscribe to private channel
+					mu.Lock()
+					if clientInfo, exists := clients[ws]; exists {
+						clientInfo.Channels[channel] = true
+					}
+					mu.Unlock()
+					ws.WriteJSON(map[string]string{
+						"status":  "subscribed",
+						"channel": channel,
+						"type":    "private",
+					})
+					fmt.Println("Subscribed to private channel:", channel)
+				} else {
+					// Public channel - no authentication needed
+					mu.Lock()
+					if clientInfo, exists := clients[ws]; exists {
+						clientInfo.Channels[channel] = true
+					}
+					mu.Unlock()
+					ws.WriteJSON(map[string]string{
+						"status":  "subscribed",
+						"channel": channel,
+						"type":    "public",
+					})
+					fmt.Println("Subscribed to public channel:", channel)
 				}
-				mu.Unlock()
-				fmt.Println("Subscribed to:", channel)
 			}
 		}
 	}

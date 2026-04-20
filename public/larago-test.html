@@ -26,7 +26,7 @@
             border-radius: 10px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             padding: 40px;
-            max-width: 600px;
+            max-width: 700px;
             width: 100%;
         }
 
@@ -91,6 +91,28 @@
             border-left: 4px solid #667eea;
         }
 
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f9fafb;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .section-title {
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-title .icon {
+            font-size: 18px;
+        }
+
         .input-section {
             margin-bottom: 30px;
         }
@@ -100,6 +122,10 @@
             grid-template-columns: 1fr 1fr;
             gap: 15px;
             margin-bottom: 15px;
+        }
+
+        .input-group.full {
+            grid-template-columns: 1fr;
         }
 
         label {
@@ -149,6 +175,10 @@
             margin-bottom: 30px;
         }
 
+        .button-group.full {
+            grid-template-columns: 1fr;
+        }
+
         button {
             padding: 12px 20px;
             border: none;
@@ -164,7 +194,7 @@
             color: white;
         }
 
-        .btn-primary:hover {
+        .btn-primary:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
         }
@@ -176,13 +206,68 @@
         }
 
         .btn-secondary {
-            background: #f3f4f6;
-            color: #333;
-            border: 1px solid #ddd;
+            background: #10b981;
+            color: white;
         }
 
         .btn-secondary:hover:not(:disabled) {
-            background: #e5e7eb;
+            background: #059669;
+        }
+
+        .subscribed-list {
+            margin-top: 15px;
+            padding: 12px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            font-size: 13px;
+        }
+
+        .subscribed-item {
+            padding: 6px 0;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .subscribed-item:last-child {
+            border-bottom: none;
+        }
+
+        .channel-type {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .channel-type.public {
+            background: #dbeafe;
+            color: #0c4a6e;
+        }
+
+        .channel-type.private {
+            background: #fecaca;
+            color: #7f1d1d;
+        }
+
+        .error-message {
+            color: #dc2626;
+            font-size: 12px;
+            margin-top: 6px;
+        }
+
+        .success-message {
+            color: #059669;
+            font-size: 12px;
+            margin-top: 6px;
+        }
+
+        .hidden {
+            display: none;
         }
 
         .messages-section {
@@ -283,133 +368,136 @@
 <body>
     <div class="container">
         <h1>🚀 LaraGo Socket Engine Test</h1>
-        <p class="subtitle">Real-time WebSocket Connection Tester</p>
+        <p class="subtitle">Public & Private Channels Tester</p>
 
         <!-- Connection Status -->
         <div class="status-section">
             <div class="status-label">
                 <span class="status-indicator connecting" id="statusIndicator"></span>
-                <span>Connection Status</span>
+                <span>WebSocket Status</span>
             </div>
             <div class="status-text" id="statusText">Connecting to WebSocket...</div>
         </div>
 
-        <!-- Server Info -->
-        <div class="url-info">
-            📍 WebSocket URL: <code id="wsUrl">ws://localhost:8080/ws</code>
-        </div>
-
-        <!-- Connection Configuration -->
-        <div class="input-section">
+        <!-- Server Configuration -->
+        <div class="section">
+            <div class="section-title">
+                <span class="icon">⚙️</span> Server Configuration
+            </div>
             <div class="input-group">
                 <div>
                     <label for="host">Host</label>
-                    <input type="text" id="host" placeholder="localhost" value="localhost">
+                    <input type="text" id="host" placeholder="localhost" value="localhost" onchange="updateWSUrl()">
                 </div>
                 <div>
                     <label for="port">Port</label>
-                    <input type="number" id="port" placeholder="8080" value="8080" min="1" max="65535">
+                    <input type="number" id="port" placeholder="8080" value="8080" min="1" max="65535" onchange="updateWSUrl()">
                 </div>
             </div>
-
-            <div class="input-group">
-                <div>
-                    <label for="connMode">Connection Mode</label>
-                    <select id="connMode" onchange="toggleJWTInput()">
-                        <option value="public">Public (No Auth)</option>
-                        <option value="private">Private (JWT Auth)</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="jwtToken">JWT Token (Private Mode)</label>
-                    <input type="text" id="jwtToken" placeholder="eyJ0eXAiOiJKV1QiLCJhbGc..." style="display:none;">
-                </div>
+            <div class="url-info">
+                📍 WebSocket URL: <code id="wsUrl">ws://localhost:8080/ws</code>
             </div>
         </div>
 
-        <!-- Channel & Message Input -->
-        <div class="input-section">
-            <div class="input-group">
+        <!-- Public Channels -->
+        <div class="section">
+            <div class="section-title">
+                <span class="icon">🌐</span> Public Channels (No Authentication)
+            </div>
+            <div class="input-group full">
                 <div>
-                    <label for="channel">Channel Name</label>
-                    <input type="text" id="channel" placeholder="e.g., test-channel" value="test-channel">
-                </div>
-                <div>
-                    <label for="event">Event Name</label>
-                    <input type="text" id="event" placeholder="e.g., message" value="message">
+                    <label for="publicChannel">Channel Name</label>
+                    <input type="text" id="publicChannel" placeholder="e.g., chat, notifications, updates" value="public-chat">
                 </div>
             </div>
-
-            <div>
-                <label for="message">Message Data (JSON)</label>
-                <textarea id="message" placeholder='{"text": "Hello LaraGo!"}'>{
-  "text": "Hello LaraGo!",
-  "timestamp": "2024-04-20"
-}</textarea>
+            <div class="button-group full">
+                <button class="btn-primary" onclick="subscribePublic()">Subscribe to Public Channel</button>
             </div>
+            <div id="publicMessage" class="success-message hidden">✅ Subscribed to: <strong id="publicChannelName"></strong></div>
         </div>
 
-        <!-- Action Buttons -->
-        <div class="button-group">
-            <button class="btn-primary" id="subscribeBtn" onclick="subscribe()">Subscribe</button>
-            <button class="btn-primary" id="sendBtn" onclick="sendMessage()" disabled>Send Message</button>
+        <!-- Private Channels -->
+        <div class="section">
+            <div class="section-title">
+                <span class="icon">🔐</span> Private Channels (JWT Required)
+            </div>
+            <div class="input-group full">
+                <div>
+                    <label for="privateChannel">Channel Name (prefix: private-)</label>
+                    <input type="text" id="privateChannel" placeholder="e.g., private-user-1, private-room-5" value="private-user-1">
+                </div>
+            </div>
+            <div class="input-group full">
+                <div>
+                    <label for="privateToken">JWT Token</label>
+                    <input type="text" id="privateToken" placeholder="Paste your JWT token here">
+                    <div style="font-size: 12px; color: #666; margin-top: 6px;">
+                        Generate token: <code>php artisan larago:token</code>
+                    </div>
+                </div>
+            </div>
+            <div class="button-group full">
+                <button class="btn-secondary" onclick="subscribePrivate()">Subscribe to Private Channel</button>
+            </div>
+            <div id="privateMessage" class="success-message hidden">✅ Subscribed to: <strong id="privateChannelName"></strong></div>
+            <div id="privateError" class="error-message hidden">❌ <span id="privateErrorMsg"></span></div>
+        </div>
+
+        <!-- Active Subscriptions -->
+        <div class="section">
+            <div class="section-title">
+                <span class="icon">📋</span> Active Subscriptions
+            </div>
+            <div class="subscribed-list" id="subscriptionsList">
+                <div style="color: #999; font-size: 12px; padding: 10px;">
+                    No active subscriptions yet
+                </div>
+            </div>
         </div>
 
         <!-- Messages Display -->
         <div class="messages-section">
-            <div class="messages-title">Messages Log</div>
+            <div class="messages-title">📨 Messages Log</div>
             <div class="messages-box" id="messagesBox"></div>
         </div>
 
         <!-- Info Box -->
         <div class="info-box">
-            <h3>📋 How to Use</h3>
+            <h3>📖 How It Works</h3>
             <ul>
-                <li>Enter a channel name and click <strong>Subscribe</strong></li>
-                <li>Type your message data in JSON format</li>
-                <li>Click <strong>Send Message</strong> to test the connection</li>
-                <li>Messages will appear below in real-time</li>
-                <li>Open another tab and subscribe to the same channel to test broadcasting</li>
+                <li><strong>Public Channels</strong> - Anyone can subscribe immediately</li>
+                <li><strong>Private Channels</strong> - Require a JWT token to subscribe</li>
+                <li>Channel name prefix determines access type: "private-" requires auth</li>
+                <li>Subscribe to both types in the same WebSocket connection</li>
+                <li>Generate tokens with: <code>php artisan larago:token</code></li>
+                <li>Open multiple browser tabs and subscribe to the same channel to test broadcasting</li>
             </ul>
         </div>
     </div>
 
     <script>
         let ws = null;
+        let subscriptions = {};
+
         const statusIndicator = document.getElementById('statusIndicator');
         const statusText = document.getElementById('statusText');
-        const subscribeBtn = document.getElementById('subscribeBtn');
-        const sendBtn = document.getElementById('sendBtn');
         const messagesBox = document.getElementById('messagesBox');
-        const channelInput = document.getElementById('channel');
-        const eventInput = document.getElementById('event');
-        const messageInput = document.getElementById('message');
         const hostInput = document.getElementById('host');
         const portInput = document.getElementById('port');
-        const connModeInput = document.getElementById('connMode');
-        const jwtTokenInput = document.getElementById('jwtToken');
+        const publicChannelInput = document.getElementById('publicChannel');
+        const privateChannelInput = document.getElementById('privateChannel');
+        const privateTokenInput = document.getElementById('privateToken');
         const wsUrlDisplay = document.getElementById('wsUrl');
-
-        const toggleJWTInput = () => {
-            if (connModeInput.value === 'private') {
-                jwtTokenInput.style.display = 'block';
-            } else {
-                jwtTokenInput.style.display = 'none';
-                jwtTokenInput.value = '';
-            }
-        };
+        const subscriptionsListDiv = document.getElementById('subscriptionsList');
 
         const updateWSUrl = () => {
             const host = hostInput.value.trim() || 'localhost';
             const port = portInput.value.trim() || '8080';
-            let url = `ws://${host}:${port}/ws`;
-            
-            if (connModeInput.value === 'private' && jwtTokenInput.value.trim()) {
-                url += `?token=${encodeURIComponent(jwtTokenInput.value.trim())}`;
+            wsUrlDisplay.textContent = `ws://${host}:${port}/ws`;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.close();
+                connectWebSocket();
             }
-            
-            wsUrlDisplay.textContent = url;
-            return url;
         };
 
         const updateStatus = (status, color, text) => {
@@ -436,115 +524,134 @@
         };
 
         const connectWebSocket = () => {
-            const wsUrl = updateWSUrl();
+            const host = hostInput.value.trim() || 'localhost';
+            const port = portInput.value.trim() || '8080';
+            const wsUrl = `ws://${host}:${port}/ws`;
             
-            updateStatus('connecting', 'connecting', '🔄 Connecting to WebSocket...');
+            updateStatus('connecting', 'connecting', '🔄 Connecting...');
             
             ws = new WebSocket(wsUrl);
             
             ws.onopen = () => {
-                updateStatus('connected', 'connected', '✅ Connected! Subscribe to a channel to receive messages.');
-                subscribeBtn.textContent = 'Resubscribe';
+                updateStatus('connected', 'connected', '✅ Connected! Subscribe to channels');
                 addMessage('received', '✅ WebSocket connected successfully!');
             };
             
             ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data.error) {
-                        addMessage('received', `❌ Error: ${data.error}`);
-                        return;
+                    
+                    // Handle subscription responses
+                    if (data.status === 'subscribed') {
+                        subscriptions[data.channel] = data.type;
+                        updateSubscriptionsList();
+                        
+                        if (data.type === 'public') {
+                            document.getElementById('publicMessage').classList.remove('hidden');
+                            document.getElementById('publicChannelName').textContent = data.channel;
+                        } else {
+                            document.getElementById('privateMessage').classList.remove('hidden');
+                            document.getElementById('privateChannelName').textContent = data.channel;
+                            document.getElementById('privateError').classList.add('hidden');
+                        }
+                        addMessage('received', `✅ Subscribed to ${data.type} channel: ${data.channel}`);
+                    } else if (data.error) {
+                        addMessage('received', `❌ Error: ${data.message || data.error}`);
+                        if (data.channel && data.channel.startsWith('private-')) {
+                            document.getElementById('privateError').classList.remove('hidden');
+                            document.getElementById('privateErrorMsg').textContent = data.message || 'Invalid token';
+                        }
+                    } else if (data.channel && data.event) {
+                        // Regular message
+                        addMessage('received', `[${data.channel}] ${data.event}: ${JSON.stringify(data.data)}`);
+                    } else {
+                        addMessage('received', event.data);
                     }
-                    addMessage('received', `[${data.channel}] ${data.event}: ${JSON.stringify(data.data)}`);
                 } catch (e) {
                     addMessage('received', event.data);
                 }
             };
             
             ws.onerror = (error) => {
-                updateStatus('disconnected', 'disconnected', '❌ WebSocket Error: ' + error.message);
+                updateStatus('disconnected', 'disconnected', '❌ WebSocket Error');
                 addMessage('received', '❌ WebSocket Error: ' + error.message);
             };
             
             ws.onclose = () => {
-                updateStatus('disconnected', 'disconnected', '❌ Disconnected from WebSocket');
-                subscribeBtn.textContent = 'Subscribe';
-                sendBtn.disabled = true;
+                updateStatus('disconnected', 'disconnected', '❌ Disconnected');
                 addMessage('received', '❌ WebSocket disconnected');
-                
-                // Try to reconnect after 3 seconds
+                subscriptions = {};
+                updateSubscriptionsList();
                 setTimeout(connectWebSocket, 3000);
             };
         };
 
-        const subscribe = () => {
-            if (!ws || ws.readyState !== WebSocket.OPEN) {
-                connectWebSocket();
+        const updateSubscriptionsList = () => {
+            if (Object.keys(subscriptions).length === 0) {
+                subscriptionsListDiv.innerHTML = '<div style="color: #999; font-size: 12px; padding: 10px;">No active subscriptions yet</div>';
                 return;
             }
-            
-            const channel = channelInput.value.trim();
-            if (!channel) {
-                alert('Please enter a channel name');
-                return;
+
+            let html = '';
+            for (const [channel, type] of Object.entries(subscriptions)) {
+                const badge = `<span class="channel-type ${type}">${type.toUpperCase()}</span>`;
+                html += `<div class="subscribed-item">${channel}${badge}</div>`;
             }
-            
-            const subscribeMsg = {
-                event: 'subscribe',
-                channel: channel
-            };
-            
-            ws.send(JSON.stringify(subscribeMsg));
-            addMessage('sent', `Subscribed to channel: ${channel}`);
-            sendBtn.disabled = false;
+            subscriptionsListDiv.innerHTML = html;
         };
 
-        const sendMessage = () => {
+        const subscribePublic = () => {
             if (!ws || ws.readyState !== WebSocket.OPEN) {
                 alert('Not connected to WebSocket');
                 return;
             }
-            
-            const channel = channelInput.value.trim();
-            const event = eventInput.value.trim();
-            const messageText = messageInput.value.trim();
-            
-            if (!channel || !event || !messageText) {
-                alert('Please fill in all fields');
+
+            const channel = publicChannelInput.value.trim();
+            if (!channel) {
+                alert('Please enter a channel name');
                 return;
             }
-            
-            let data;
-            try {
-                data = JSON.parse(messageText);
-            } catch (e) {
-                data = messageText;
-            }
-            
-            const message = {
-                channel: channel,
-                event: event,
-                data: data
+
+            const msg = {
+                event: 'subscribe',
+                channel: channel
             };
-            
-            ws.send(JSON.stringify(message));
-            addMessage('sent', `Sent to ${channel}: ${JSON.stringify(message, null, 2)}`);
+
+            ws.send(JSON.stringify(msg));
+            addMessage('sent', `Subscribing to public channel: ${channel}`);
         };
 
-        // Update URL display when inputs change
-        hostInput.addEventListener('change', updateWSUrl);
-        portInput.addEventListener('change', updateWSUrl);
-        connModeInput.addEventListener('change', () => {
-            toggleJWTInput();
-            updateWSUrl();
-        });
-        jwtTokenInput.addEventListener('change', updateWSUrl);
+        const subscribePrivate = () => {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alert('Not connected to WebSocket');
+                return;
+            }
+
+            const channel = privateChannelInput.value.trim();
+            const token = privateTokenInput.value.trim();
+
+            if (!channel) {
+                alert('Please enter a channel name');
+                return;
+            }
+
+            if (!token) {
+                alert('Please paste a JWT token for private channels');
+                return;
+            }
+
+            const msg = {
+                event: 'subscribe',
+                channel: channel,
+                token: token
+            };
+
+            ws.send(JSON.stringify(msg));
+            addMessage('sent', `Subscribing to private channel: ${channel}`);
+        };
 
         // Connect on page load
-        window.addEventListener('load', () => {
-            toggleJWTInput();
-            connectWebSocket();
-        });
+        window.addEventListener('load', connectWebSocket);
     </script>
 </body>
 </html>

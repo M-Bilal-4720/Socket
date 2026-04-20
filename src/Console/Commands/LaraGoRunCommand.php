@@ -8,7 +8,7 @@ use Symfony\Component\Process\Process;
 
 class LaraGoRunCommand extends Command
 {
-    protected $signature = 'larago:run {--host=0.0.0.0 : The host to run on} {--port=8080 : The port to run on} {--mode=public : Connection mode (public or private)} {--force : Kill existing engine instance and start fresh} {--background : Run engine in background}';
+    protected $signature = 'larago:run {--host=0.0.0.0 : The host to run on} {--port=8080 : The port to run on} {--force : Kill existing engine instance and start fresh} {--background : Run engine in background}';
     protected $description = 'Start the LaraGo WebSocket engine';
 
     public function handle()
@@ -47,7 +47,7 @@ class LaraGoRunCommand extends Command
         $this->info('🚀 Starting LaraGo Engine...');
         $this->info("📡 Listening on {$this->option('host')}:{$this->option('port')}");
         $this->info('📍 Unix socket: /tmp/larago.sock');
-        $this->info("🔐 Connection Mode: {$this->option('mode')}");
+        $this->info('🔐 Supports both public and private channels');
         
         if ($this->option('background')) {
             $this->info('🔄 Running in background mode');
@@ -60,12 +60,7 @@ class LaraGoRunCommand extends Command
         $env = $_ENV;
         $env['LARAGO_HOST'] = $this->option('host');
         $env['LARAGO_PORT'] = $this->option('port');
-        $env['LARAGO_CONNECTION_MODE'] = $this->option('mode');
-        
-        // Set JWT secret for private mode
-        if ($this->option('mode') === 'private') {
-            $env['LARAGO_JWT_SECRET'] = config('app.key') ?: 'larago-secret-key';
-        }
+        $env['LARAGO_JWT_SECRET'] = config('app.key') ?: 'larago-secret-key';
 
         if ($this->option('background')) {
             // Run in background using nohup to properly detach from parent process
@@ -76,11 +71,8 @@ class LaraGoRunCommand extends Command
             $envStr = '';
             $envStr .= "LARAGO_HOST={$this->option('host')} ";
             $envStr .= "LARAGO_PORT={$this->option('port')} ";
-            $envStr .= "LARAGO_CONNECTION_MODE={$this->option('mode')} ";
-            if ($this->option('mode') === 'private') {
-                $secret = config('app.key') ?: 'larago-secret-key';
-                $envStr .= "LARAGO_JWT_SECRET='$secret' ";
-            }
+            $secret = config('app.key') ?: 'larago-secret-key';
+            $envStr .= "LARAGO_JWT_SECRET='$secret' ";
             
             $fullCommand = $envStr . $command;
             
