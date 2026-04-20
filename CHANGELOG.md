@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2024-04-20
+
+### Added
+- `--force` flag to `larago:run` command for automatic restart
+- Improved Unix socket detection using `lsof`
+- Better error messages when socket is already in use
+- Automatic stale socket file cleanup
+
+### Improved
+- More reliable socket availability detection
+- Graceful handling of engine restart scenarios
+- User-friendly error messages with actionable solutions
+
+### Fixed
+- Race condition when killing existing engine processes
+- Stale socket files preventing new engine startup
+- Panic errors now caught and displayed as helpful messages
+
 ## [1.1.0] - 2024-04-20
 
 ### Added
@@ -38,5 +56,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for Laravel 8, 9, 10, 11, and 13
 - Simple JSON protocol for message broadcasting
 
+[1.2.0]: https://github.com/M-Bilal-4720/Socket/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/M-Bilal-4720/Socket/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/M-Bilal-4720/Socket/releases/tag/v1.0.0
