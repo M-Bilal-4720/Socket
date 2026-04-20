@@ -16,8 +16,8 @@ if ! command -v go &> /dev/null; then
     exit 1
 fi
 
-# Navigate to go-src directory
-cd "$SCRIPT_DIR" || exit 1
+# Navigate to go-src module
+cd "$GO_SRC" || exit 1
 
 # Initialize go.mod if it doesn't exist
 if [ ! -f go.mod ]; then
@@ -31,7 +31,6 @@ go mod tidy
 
 # Build the binary
 echo "⚙️  Compiling Go engine..."
-cd "$GO_SRC" || exit 1
 go build -o "$BIN_DIR/go-engine" main.go
 
 if [ -f "$BIN_DIR/go-engine" ]; then

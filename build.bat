@@ -3,7 +3,7 @@ REM Build LaraGo Socket Go Engine on Windows
 REM This script compiles the Go WebSocket engine binary
 
 echo.
-echo 🔨 Building LaraGo Socket Go Engine...
+echo Building LaraGo Socket Go Engine...
 echo.
 
 REM Change to script directory
@@ -12,58 +12,38 @@ cd /d "%~dp0"
 REM Check if Go is installed
 where go >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
-    echo ❌ Error: Go is not installed or not in PATH
-    echo.
+    echo Error: Go is not installed or not in PATH
     echo Please install Go from: https://golang.org/dl/
-    echo Choose: go1.22.5.windows-amd64.msi (or latest version)
-    echo.
-    echo After installation:
-    echo 1. Restart your terminal/PowerShell
-    echo 2. Verify: go version
-    echo 3. Run this script again
-    echo.
-    pause
+    echo Then verify with: go version
     exit /b 1
 )
 
 REM Create bin directory if it doesn't exist
 if not exist "bin" (
-    echo 📁 Creating bin directory...
+    echo Creating bin directory...
     mkdir bin
 )
 
 REM Download dependencies
-echo 📦 Downloading Go dependencies...
-call go mod download
+echo Downloading Go dependencies...
+pushd go-src
+go mod download
 if %ERRORLEVEL% NEQ 0 (
-    echo ❌ Failed to download dependencies
-    pause
+    popd
+    echo Failed to download dependencies
     exit /b 1
 )
 
 REM Compile for Windows
-echo ⚙️  Compiling Go engine for Windows...
-call go build -o bin\go-engine.exe go-src\main.go
-if %ERRORLEVEL% EQU 0 (
-    echo.
-    echo ✅ Build successful!
-    echo 📁 Binary: %~dp0bin\go-engine.exe
-    echo.
-    echo Next steps:
-    echo 1. Run: php artisan larago:run --background
-    echo 2. Open: http://localhost:8000/larago-test
-    echo.
-) else (
-    echo ❌ Build failed!
-    echo.
-    echo Troubleshooting:
-    echo - Make sure Go is installed: go version
-    echo - Check PATH includes Go: go env GOROOT
-    echo - Try running from PowerShell as Administrator
-    echo.
-    pause
+echo Compiling Go engine for Windows...
+go build -o ..\bin\go-engine.exe main.go
+popd
+if %ERRORLEVEL% NEQ 0 (
+    echo Build failed
     exit /b 1
 )
 
 echo.
-pause
+echo Build successful
+echo Binary: %~dp0bin\go-engine.exe
+exit /b 0
