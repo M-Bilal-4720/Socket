@@ -161,7 +161,11 @@ class LaraGoRunCommand extends Command
     private function runInForeground($enginePath, $env)
     {
         $process = new Process([$enginePath], null, $env);
-        $process->setTty(true);
+        
+        // Only set TTY mode on Unix-like systems (not Windows)
+        if (!$this->isWindows) {
+            $process->setTty(true);
+        }
         
         try {
             $process->mustRun(function ($type, $buffer) {
@@ -238,28 +242,29 @@ class LaraGoRunCommand extends Command
      */
     private function buildEngine($packagePath)
     {
-        // Check if build script exists
+        // Determine which build script to use
         if ($this->isWindows) {
-            $buildScript = $packagePath . '/build.bat';
-            if (!file_exists($buildScript)) {
-                // Fallback to build.sh with bash
-                $buildScript = $packagePath . '/build.sh';
-                if (!file_exists($buildScript)) {
-                    $this->error('build.sh not found at: ' . $buildScript);
+            $buildBat = $packagePath . '/build.bat';
+            if (file_exists($buildBat)) {
+                // Use batch script on Windows if available
+                $process = new Process(['cmd', '/C', $buildBat], $packagePath);
+            } else {
+                // Fallback to bash if available
+                $buildSh = $packagePath . '/build.sh';
+                if (!file_exists($buildSh)) {
+                    $this->error('❌ Neither build.bat nor build.sh found in: ' . $packagePath);
+                    $this->error('Make sure you have the complete LaraGo package installed');
                     return false;
                 }
+                $process = new Process(['bash', 'build.sh'], $packagePath);
             }
         } else {
-            $buildScript = $packagePath . '/build.sh';
-            if (!file_exists($buildScript)) {
-                $this->error('build.sh not found at: ' . $buildScript);
+            // Unix/Mac: use build.sh
+            $buildSh = $packagePath . '/build.sh';
+            if (!file_exists($buildSh)) {
+                $this->error('❌ build.sh not found at: ' . $buildSh);
                 return false;
             }
-        }
-
-        if ($this->isWindows && strpos($buildScript, '.bat') !== false) {
-            $process = new Process(['cmd', '/C', $buildScript], $packagePath);
-        } else {
             $process = new Process(['bash', 'build.sh'], $packagePath);
         }
         
@@ -272,7 +277,12 @@ class LaraGoRunCommand extends Command
             return true;
         } catch (\Exception $e) {
             $this->error('❌ Build failed: ' . $e->getMessage());
-            $this->error('Make sure Go is installed and available in your PATH');
+            if ($this->isWindows) {
+                $this->error('Make sure Go is installed and available in your PATH');
+                $this->error('Download Go from: https://golang.org/dl/');
+            } else {
+                $this->error('Make sure Go is installed and available in your PATH');
+            }
             return false;
         }
     }
