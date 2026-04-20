@@ -3,11 +3,12 @@
 namespace LaraGo\Socket\Console\Commands;
 
 use Illuminate\Console\Command;
+use Symfony\Component\Process\Exception\ProcessFailedException;
 use Symfony\Component\Process\Process;
 
 class LaraGoRunCommand extends Command
 {
-    protected $signature = 'larago:run {--host=0.0.0.0 : The host to run on} {--port=8080 : The port to run on}';
+    protected $signature = 'larago:run {--host=0.0.0.0 : The host to run on} {--port=8080 : The port to run on} {--force : Kill existing engine instance and start fresh}';
     protected $description = 'Start the LaraGo WebSocket engine';
 
     public function handle()
@@ -27,6 +28,22 @@ class LaraGoRunCommand extends Command
             $this->newLine();
         }
 
+        // Check if socket is already in use
+        if ($this->option('force')) {
+            $this->killExistingEngine();
+        } else {
+            if ($this->isSocketInUse()) {
+                $this->warn('⚠️  LaraGo engine is already running!');
+                $this->newLine();
+                $this->line('Options:');
+                $this->line('  • To start a new instance, kill the existing one:');
+                $this->line('    <comment>pkill -f "go-engine"</comment>');
+                $this->line('  • Or use the --force flag:');
+                $this->line('    <comment>php artisan larago:run --force</comment>');
+                return 0;
+            }
+        }
+
         $this->info('🚀 Starting LaraGo Engine...');
         $this->info("📡 Listening on port: {$this->option('port')}");
         $this->info('📍 Unix socket: /tmp/larago.sock');
@@ -43,12 +60,79 @@ class LaraGoRunCommand extends Command
         // Create and run the process
         $process = new Process([$enginePath], null, $env);
         $process->setTty(true);
-        $process->mustRun(function ($type, $buffer) {
-            echo $buffer;
-        });
+        
+        try {
+            $process->mustRun(function ($type, $buffer) {
+                echo $buffer;
+            });
+        } catch (ProcessFailedException $e) {
+            $output = $e->getProcess()->getErrorOutput();
+            
+            // Check if it's a socket in use error
+            if (strpos($output, 'bind: address already in use') !== false || 
+                strpos($output, 'listen unix') !== false) {
+                $this->error('❌ Unix socket already in use!');
+                $this->newLine();
+                $this->line('The engine is already running or the socket file is locked.');
+                $this->line('Options:');
+                $this->line('  1. Kill the existing engine:');
+                $this->line('     <comment>pkill -f "go-engine"</comment>');
+                $this->line('  2. Or remove the stale socket file:');
+                $this->line('     <comment>rm /tmp/larago.sock</comment>');
+                $this->line('  3. Or use --force flag to auto-kill existing:');
+                $this->line('     <comment>php artisan larago:run --force</comment>');
+                return 1;
+            }
+            
+            $this->error('❌ Engine failed to start: ' . $e->getMessage());
+            return 1;
+        }
 
         return 0;
     }
+
+    /**
+     * Check if Unix socket is already in use
+     */
+    private function isSocketInUse()
+    {
+        $socketPath = '/tmp/larago.sock';
+        
+        if (!file_exists($socketPath)) {
+            return false;
+        }
+        
+        // Try to connect to the socket
+        $socket = @fsockopen('unix://' . $socketPath, -1, $errno, $errstr, 1);
+        if ($socket) {
+            fclose($socket);
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
+     * Kill existing Go engine processes
+     */
+    private function killExistingEngine()
+    {
+        $process = new Process(['pkill', '-f', 'go-engine']);
+        $process->run();
+        
+        if ($process->isSuccessful()) {
+            $this->info('✅ Killed existing engine instances');
+        }
+        
+        // Clean up stale socket file
+        if (file_exists('/tmp/larago.sock')) {
+            @unlink('/tmp/larago.sock');
+            $this->info('🧹 Cleaned up stale socket file');
+        }
+        
+        $this->newLine();
+    }
+
 
     /**
      * Build the Go engine binary
