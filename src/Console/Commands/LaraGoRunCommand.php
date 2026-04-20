@@ -12,12 +12,19 @@ class LaraGoRunCommand extends Command
 
     public function handle()
     {
-        $enginePath = base_path('vendor/larago/socket/bin/go-engine');
+        $packagePath = base_path('vendor/larago/socket');
+        $enginePath = $packagePath . '/bin/go-engine';
 
+        // Auto-build if binary doesn't exist
         if (!file_exists($enginePath)) {
-            $this->error('Go engine binary not found at: ' . $enginePath);
-            $this->info('Run: cd vendor/larago/socket && bash build.sh');
-            return 1;
+            $this->warn('⚠️  Go engine binary not found. Building now...');
+            $this->newLine();
+            
+            if (!$this->buildEngine($packagePath)) {
+                return 1;
+            }
+            
+            $this->newLine();
         }
 
         $this->info('🚀 Starting LaraGo Engine...');
@@ -41,5 +48,34 @@ class LaraGoRunCommand extends Command
         });
 
         return 0;
+    }
+
+    /**
+     * Build the Go engine binary
+     */
+    private function buildEngine($packagePath)
+    {
+        // Check if build.sh exists
+        $buildScript = $packagePath . '/build.sh';
+        if (!file_exists($buildScript)) {
+            $this->error('build.sh not found at: ' . $buildScript);
+            return false;
+        }
+
+        // Run build.sh
+        $process = new Process(['bash', 'build.sh'], $packagePath);
+        
+        try {
+            $process->mustRun(function ($type, $buffer) {
+                echo $buffer;
+            });
+            
+            $this->info('✅ Build completed successfully!');
+            return true;
+        } catch (\Exception $e) {
+            $this->error('❌ Build failed: ' . $e->getMessage());
+            $this->error('Make sure Go is installed and available in your PATH');
+            return false;
+        }
     }
 }
