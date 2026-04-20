@@ -1,16 +1,23 @@
 {
     "name": "larago/socket",
-    "description": "Integrated Laravel Broadcasting with Golang Real-time Engine",
+    "description": "Real-time WebSocket Broadcasting Engine for Laravel with Go Backend",
     "type": "library",
     "license": "MIT",
+    "keywords": ["laravel", "websocket", "broadcasting", "real-time", "go", "golang"],
+    "homepage": "https://github.com/M-Bilal-4720/Socket",
     "authors": [
         {
-            "name": "LaraGo Team",
-            "email": "info@larago.dev"
+            "name": "Malik Bilal",
+            "email": "malik.bilal4720@gmail.com"
         }
     ],
+    "support": {
+        "issues": "https://github.com/M-Bilal-4720/Socket/issues",
+        "source": "https://github.com/M-Bilal-4720/Socket"
+    },
     "require": {
-        "php": ">=7.4"
+        "php": ">=7.4",
+        "illuminate/support": "^8.0|^9.0|^10.0|^11.0|^13.0"
     },
     "autoload": {
         "psr-4": {

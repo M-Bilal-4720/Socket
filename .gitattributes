@@ -1,0 +1,11 @@
+* text=auto
+
+# Exclude unnecessary files from distribution
+.github export-ignore
+.gitignore export-ignore
+.gitattributes export-ignore
+PUBLISHING.md export-ignore
+tests/ export-ignore
+*.md export-ignore !README.md
+.editorconfig export-ignore
+composer.lock export-ignore
