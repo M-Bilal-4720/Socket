@@ -3,9 +3,25 @@
 # Exclude unnecessary files from distribution
 .github export-ignore
 .gitignore export-ignore
-.gitattributes export-ignore
 PUBLISHING.md export-ignore
 tests/ export-ignore
-*.md export-ignore !README.md
+pdf-env/ export-ignore
+generate-pdf.py export-ignore
+LaraGo-Socket-Package-Guide.pdf export-ignore
+BROWSER_TESTING.md export-ignore
+PACKAGIST_SETUP.md export-ignore
+SECURITY.md export-ignore
+SUPERVISOR.md export-ignore
 .editorconfig export-ignore
 composer.lock export-ignore
+.gitattributes export-ignore
+
+# Include documentation files in distribution
+README.md export-ignore=false
+WINDOWS_SETUP.md export-ignore=false
+WINDOWS_QUICK_FIX.md export-ignore=false
+MACOS_SETUP.md export-ignore=false
+LINUX_SETUP.md export-ignore=false
+CONNECTION_MODES.md export-ignore=false
+CHANGELOG.md export-ignore=false
+LICENSE export-ignore=false

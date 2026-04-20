@@ -1,24 +1,43 @@
 {
     "name": "larago/socket",
-    "description": "Real-time WebSocket Broadcasting Engine for Laravel with Go Backend",
+    "description": "Real-time WebSocket Broadcasting Engine for Laravel. Go-powered server with cross-platform support (Windows, macOS, Linux). Public & Private channels with JWT authentication.",
     "type": "library",
     "license": "MIT",
-    "keywords": ["laravel", "websocket", "broadcasting", "real-time", "go", "golang"],
+    "keywords": [
+        "laravel",
+        "websocket",
+        "broadcasting",
+        "real-time",
+        "go",
+        "golang",
+        "server",
+        "socket",
+        "channel",
+        "jwt",
+        "authentication",
+        "private-channels",
+        "public-channels"
+    ],
     "homepage": "https://github.com/M-Bilal-4720/Socket",
+    "readme": "README.md",
     "authors": [
         {
             "name": "Malik Bilal",
-            "email": "malik.bilal4720@gmail.com"
+            "email": "malik.bilal4720@gmail.com",
+            "homepage": "https://github.com/M-Bilal-4720"
         }
     ],
     "support": {
         "issues": "https://github.com/M-Bilal-4720/Socket/issues",
-        "source": "https://github.com/M-Bilal-4720/Socket"
+        "source": "https://github.com/M-Bilal-4720/Socket",
+        "docs": "https://github.com/M-Bilal-4720/Socket#readme",
+        "chat": "https://github.com/M-Bilal-4720/Socket/discussions"
     },
     "require": {
         "php": ">=7.4",
         "illuminate/support": "^8.0|^9.0|^10.0|^11.0|^12.0|^13.0"
     },
+    "require-dev": {},
     "autoload": {
         "psr-4": {
             "LaraGo\\Socket\\": "src/"
@@ -26,13 +45,10 @@
     },
     "scripts": {
         "post-install-cmd": [
-            "@build-engine"
+            "@php -r \"if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') { echo 'Windows detected - run: build.bat\\n'; } else { passthru('bash build.sh'); }\""
         ],
         "post-update-cmd": [
-            "@build-engine"
-        ],
-        "build-engine": [
-            "bash build.sh"
+            "@php -r \"if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') { echo 'Windows detected - run: build.bat\\n'; } else { passthru('bash build.sh'); }\""
         ]
     },
     "extra": {
