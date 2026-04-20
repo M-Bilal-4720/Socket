@@ -1,16 +1,29 @@
 # LaraGo Socket Package
 
-Integrated Laravel Broadcasting with Golang Real-time Engine
+Integrated Laravel Broadcasting with Go Real-time WebSocket Engine
 
 ## Installation
 
-### Step 1: Register Package in Laravel
+### Option 1: From GitHub (Recommended)
+
+```bash
+# Add VCS repository configuration
+composer config repositories.socket vcs https://github.com/M-Bilal-4720/Socket.git
+
+# Install the package
+composer require larago/socket:dev-master --prefer-source
+
+# Compile Go engine
+cd vendor/larago/socket && bash build.sh && cd ../../../
+```
+
+### Option 2: From Local Path (Development)
 
 Add to your main `composer.json`:
 
 ```json
 "repositories": [
-    { "type": "path", "url": "packages/LaraGo/Socket" }
+    { "type": "path", "url": "./packages/LaraGo" }
 ],
 "require": {
     "larago/socket": "*"
@@ -20,6 +33,9 @@ Add to your main `composer.json`:
 Then run:
 ```bash
 composer update
+
+# Manually compile Go engine
+cd vendor/larago/socket && bash build.sh
 ```
 
 ### Step 2: Configure Broadcasting Driver
@@ -37,13 +53,11 @@ Set in `.env`:
 BROADCAST_DRIVER=larago
 ```
 
-### Step 3: Compile and Run Go Engine
+### Step 3: Run Go Engine
 
 ```bash
-cd packages/LaraGo/Socket/go-src
-go get github.com/gorilla/websocket
-go build -o ../bin/go-engine main.go
-../bin/go-engine
+# Start the WebSocket engine (runs on port 8080)
+vendor/larago/socket/bin/go-engine
 ```
 
 ## Usage
