@@ -2,9 +2,10 @@
 
 namespace LaraGo\Socket;
 
-use Illuminate\Contracts\Broadcasting\Broadcaster;
+use Illuminate\Broadcasting\Broadcasters\Broadcaster as BaseBroadcaster;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
-class GoBroadcaster implements Broadcaster
+class GoBroadcaster extends BaseBroadcaster
 {
     /**
      * Broadcast a message to Laravel WebSocket subscribers
@@ -43,16 +44,22 @@ class GoBroadcaster implements Broadcaster
     /**
      * Authenticate a user for private channels
      */
-    public function auth($request) 
-    { 
-        return true; 
+    public function auth($request)
+    {
+        $channelName = $request->channel_name ?? null;
+
+        if (empty($channelName)) {
+            throw new AccessDeniedHttpException('Channel not provided.');
+        }
+
+        return $this->verifyUserCanAccessChannel($request, $channelName);
     }
 
     /**
      * Return valid authentication response
      */
-    public function validAuthenticationResponse($request, $result) 
-    { 
-        return []; 
+    public function validAuthenticationResponse($request, $result)
+    {
+        return ['authorized' => (bool) $result];
     }
 }

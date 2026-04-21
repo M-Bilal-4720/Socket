@@ -100,35 +100,41 @@ class LaraGoRunCommand extends Command
         if ($this->isWindows) {
             // Windows background execution using START command
             $secret = config('app.key') ?: 'larago-secret-key';
-            $envStr = '';
-            $envStr .= "set LARAGO_HOST=" . $this->option('host') . "&& ";
-            $envStr .= "set LARAGO_PORT=" . $this->option('port') . "&& ";
-            $envStr .= "set LARAGO_LARAVEL_PORT=" . $this->laravelPort . "&& ";
-            $envStr .= "set LARAGO_JWT_SECRET=" . $secret . "&& ";
-            
-            $logFile = storage_path('logs/larago-engine.log');
-            $cmd = "START /B {$envStr} \"{$enginePath}\"";
-            
-            // Use proc_open for more reliable background execution
-            $descriptors = array(
-                0 => array("pipe", "r"),
-                1 => array("file", $logFile, "a"),
-                2 => array("file", $logFile, "a")
+            $host = str_replace('"', '""', (string) $this->option('host'));
+            $port = str_replace('"', '""', (string) $this->option('port'));
+            $laravelPort = str_replace('"', '""', (string) $this->laravelPort);
+            $jwtSecret = str_replace('"', '""', (string) $secret);
+
+            $cmd = sprintf(
+                'start "" /B cmd /C "set LARAGO_HOST=%s&& set LARAGO_PORT=%s&& set LARAGO_LARAVEL_PORT=%s&& set LARAGO_JWT_SECRET=%s&& "%s" >> "%s" 2>&1"',
+                $host,
+                $port,
+                $laravelPort,
+                $jwtSecret,
+                $enginePath,
+                $logFile
             );
             
-            $process = proc_open($cmd, $descriptors, $pipes, null, null);
-            
-            if (is_resource($process)) {
-                proc_close($process);
-                sleep(4);
+            // popen+pclose detaches better on Windows than proc_open for long-running child processes
+            $handle = @popen($cmd, 'r');
+            if ($handle === false) {
+                $this->error('❌ Failed to start engine');
+                return 1;
+            }
+
+            pclose($handle);
+            sleep(2);
+
+            if ($this->isEngineRunning()) {
                 $this->info('✅ Engine started successfully in background');
                 $this->line('Log: <comment>' . $logFile . '</comment>');
                 $this->line('Stop with: <comment>php artisan larago:stop</comment> or <comment>taskkill /IM go-engine.exe /F</comment>');
                 return 0;
-            } else {
-                $this->error('❌ Failed to start engine');
-                return 1;
             }
+
+            $this->error('❌ Engine failed to start in background');
+            $this->line('Check log: <comment>' . $logFile . '</comment>');
+            return 1;
         } else {
             // Unix/Mac background execution using nohup
             $secret = config('app.key') ?: 'larago-secret-key';
@@ -217,8 +223,8 @@ class LaraGoRunCommand extends Command
         
         // Check if port is listening
         if ($this->isWindows) {
-            // Windows: check if port is in LISTENING state
-            $output = shell_exec('netstat -ano 2>nul | findstr "LISTENING.*:' . $port . '"');
+            // Windows: filter by port first, then LISTENING state
+            $output = shell_exec('netstat -ano 2>nul | findstr /R /C:":' . $port . '[ ]" | findstr /I "LISTENING"');
             return !empty($output);
         } else {
             // Unix/Mac: use lsof to check port

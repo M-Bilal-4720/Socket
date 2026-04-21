@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.5] - 2026-04-20
+
+### Fixed
+- **Laravel Package Discovery**: Fixed `Call to undefined method LaraGo\\Socket\\GoBroadcaster::channel()` during `artisan package:discover`
+- **Broadcast Driver Compatibility**: `GoBroadcaster` now extends Laravel base broadcaster to support channel registration and authorization flow
+- **Windows Background Startup**: Improved command quoting and environment setup when launching Go engine in background mode
+- **Windows Process Detection**: Corrected `netstat` parsing logic for reliable LISTENING port checks
+
+### Changed
+- **Startup Validation**: Windows background startup now confirms process bind success before reporting a successful launch
+
 ## [2.0.0] - 2024-12-XX
 
 ### Added
@@ -102,6 +113,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for Laravel 8, 9, 10, 11, and 13
 - Simple JSON protocol for message broadcasting
 
+[2.0.5]: https://github.com/M-Bilal-4720/Socket/compare/v2.0.4...v2.0.5
 [2.0.0]: https://github.com/M-Bilal-4720/Socket/compare/v1.2.0...v2.0.0
 [1.2.0]: https://github.com/M-Bilal-4720/Socket/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/M-Bilal-4720/Socket/compare/v1.0.0...v1.1.0

@@ -13,7 +13,7 @@ LaraGo Socket Package is ready to be published on Packagist (the PHP package rep
 - [x] SECURITY.md with security policy
 - [x] .gitattributes for clean distribution
 - [x] GitHub repository: https://github.com/M-Bilal-4720/Socket
-- [x] Version tags (v1.0.0, v1.1.0)
+- [x] Version tags (v1.0.0, v1.1.0, v1.2.0, v2.0.0)
 
 ## How to Publish
 
@@ -32,6 +32,24 @@ LaraGo Socket Package is ready to be published on Packagist (the PHP package rep
 2. Click "Edit Package"
 3. In GitHub section, authorize Packagist
 4. Packagist will automatically update when you push to GitHub
+
+### Step 4: Publish a New Release (Update Existing Package)
+
+Run these commands from the package repository root:
+
+```bash
+git add src/GoBroadcaster.php src/Console/Commands/LaraGoRunCommand.php CHANGELOG.md
+git commit -m "fix: Laravel discovery compatibility and Windows process handling"
+git push origin master
+
+# Tag the new Packagist version
+git tag v2.0.5
+git push origin v2.0.5
+```
+
+Then force a refresh in Packagist:
+1. Open https://packagist.org/packages/larago/socket
+2. Click "Update" (or wait for webhook auto-sync)
 
 ## Installation Instructions for Users
 
@@ -52,7 +70,7 @@ php artisan larago:run
 
 **Keywords:** laravel, websocket, broadcasting, real-time, go, golang
 
-**Supported Laravel Versions:** 8.0+, 9.0+, 10.0+, 11.0+, 13.0+
+**Supported Laravel Versions:** 8.0+, 9.0+, 10.0+, 11.0+, 12.0+, 13.0+
 
 **License:** MIT
 
